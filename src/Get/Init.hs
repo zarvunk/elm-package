@@ -1,4 +1,4 @@
-module Get.Init where
+module Command.Init where
 
 import System.IO (hFlush, stdout)
 
@@ -9,56 +9,98 @@ import qualified Elm.Package.Description as D
 import qualified Elm.Package.Paths as Path
 import qualified Data.ByteString.Lazy as BS
 
-askForChecked :: (String -> Either String a) -> String -> IO a
-askForChecked check request = do
-  putStr $ request ++ " "
-  hFlush stdout
-  answer <- getLine
-  case check answer of
-    Right result -> return result
-    Left message -> do putStrLn message
-                       askForChecked check request
 
-eitherFromMaybe :: a -> Maybe b -> Either a b
-eitherFromMaybe def val = case val of
-  Just r -> Right r
-  Nothing -> Left def
+query :: Show a => String -> Maybe a -> (String -> Either String a) -> IO a
+query prompt maybeDefault verify =
+  do  putStrLn prompt
 
-injectDefault :: Maybe [a] -> [a] -> [a]
-injectDefault (Just xs) [] = xs
-injectDefault _ ys = ys
+      answer <- getLine
+      case verify answer of
+        Right result -> return result
 
-askForVersion :: Maybe String -> String -> IO V.Version
-askForVersion def req = askForChecked check req
-  where check = (eitherFromMaybe "Wrong version format!" . V.fromString . injectDefault def)
+        Left message ->
+            case maybeDefault of
+                Just result -> return result
+                Nothing ->
+                    do  putStrLn message
+                        query check prompt
+
+
+repoPrompt :: String
+repoPrompt =
+    unlines
+    [ "We need the name of your project's GitHub repo."
+    , ""
+    , "  Why:"
+    , "    This makes it easy to keep track of different versions of your code in"
+    , "    case you ever want to publish it for the community."
+    , ""
+    , "  Example: https://github.com/evancz/elm-html.git"
+    , "  Default: https://github.com/USER/PROJECT.git"
+    , ""
+    ]
+
+
+summaryPrompt :: String
+summaryPrompt =
+    unlines
+    [ "Please summarize your project in under 80 characters!"
+    , ""
+    , "  Why:"
+    , "    When people search for your project"
+    ]
+
+
+licensePrompt :: String
+licensePrompt =
+    unlines
+    [ "We need to choose a license."
+    , ""
+    , "  Why:"
+    , "    This makes it clear to other people how they can use your code. We"
+    , "    recommend using BSD3 which makes it easy to use within companies."
+    , ""
+    , "  Example: MIT"
+    , "  Default: BSD3"
+    , ""
+    ]
+
+
 
 askFor :: String -> IO String
-askFor req = askForChecked Right req
+askFor req =
+    askForChecked Right req
+
 
 askForWithDefault :: String -> String -> IO String
-askForWithDefault def req = askForChecked (Right . injectDefault (Just def)) req
+askForWithDefault def req =
+    askForChecked (Right . injectDefault (Just def)) req
 
-askForLimited :: String -> Int -> String -> IO String
-askForLimited name limit req = askForChecked check req
-  where check str = if length str > limit
-                    then Left errorMessage
-                    else Right str
-        errorMessage = concat [ name
-                              , " length shouldn't exceed "
-                              , show limit
-                              , " characters!"]
 
-readDeps :: IO D.Description
-readDeps = do
-  projectName <- askFor "Project name:"
-  userName <- askFor "Github user name:"
-  version <- askForVersion (Just "0.1.0") "Initial version? [default: 0.1.0]"
-  summary <- askForLimited "Summary" 80 "Summary:"
-  description <- askFor "Description:"
-  license <- askForWithDefault "BSD3" "License? [default: BSD3]"
-  repo <- askFor "Repository address?"
-  elmVersion <- askForVersion Nothing "Elm version?"
-  return $ D.Description (N.Name userName projectName) version summary description license repo [] [] elmVersion [] []
+verifySummary :: String -> Either String String
+verifySummary summary =
+    if length summary < 80
+        then Right summary
+        else Left errorMessage
+    where
+      errorMessage =
+          concat
+          [ "Your summary should be the one sen"
+          , " length shouldn't exceed "
+          , show limit
+          , " characters!"
+          ]
+
+
+askUser :: IO D.Description
+askUser =
+  do  repo    <- query "GitHub Repo" Nothing
+      summary <- query "Short Summary" Nothing verifySummary
+      desc    <- query "Description" Nothing Right
+      license <- query "License" (Just "BSD3") Right
+      
+      return $ D.Description (N.Name userName projectName)
+
 
 initialize :: IO ()
 initialize = do
