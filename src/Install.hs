@@ -11,6 +11,7 @@ import System.FilePath ((</>))
 import qualified CommandLine.Helpers as Cmd
 import qualified Elm.Package.Constraint as Constraint
 import qualified Elm.Package.Description as Desc
+import qualified Elm.Package.Dependencies as Deps
 import qualified Elm.Package.Name as N
 import qualified Elm.Package.Paths as Path
 import qualified Elm.Package.Solution as Solution
@@ -55,7 +56,7 @@ install autoYes args =
 
 upgrade :: Bool -> Desc.Description -> Manager.Manager ()
 upgrade autoYes description =
-  do  newSolution <- Solver.solve (Desc.dependencies description)
+  do  newSolution <- Solver.solve (Deps.list $ Desc.dependencies description)
 
       exists <- liftIO (doesFileExist Path.solvedDependencies)
       oldSolution <-
@@ -131,7 +132,7 @@ latestVersion name =
 
 addConstraint :: Bool -> N.Name -> V.Version -> Desc.Description -> Manager.Manager Desc.Description
 addConstraint autoYes name version description =
-  case List.lookup name (Desc.dependencies description) of
+  case List.lookup name (Deps.list $ Desc.dependencies description) of
     Nothing ->
       addNewDependency autoYes name version description
 
@@ -164,7 +165,7 @@ addNewDependency autoYes name version description =
           do  liftIO $ putStrLn noConfirmation
               return description
         True ->
-          do  let newDescription = description { Desc.dependencies = newConstraints }
+          do  let newDescription = description { Desc.dependencies = Deps.Dependencies newConstraints }
               liftIO $ Desc.write newDescription
               return newDescription
   where
@@ -172,7 +173,7 @@ addNewDependency autoYes name version description =
         Constraint.untilNextMajor version
 
     newConstraints =
-        (name, newConstraint) : Desc.dependencies description
+        (name, newConstraint) : Deps.list (Desc.dependencies description)
 
     noConfirmation =
         "Cannot install the new package unless it appears in " ++ Path.description ++ ".\n" ++
@@ -201,7 +202,7 @@ initialDescription =
   do  let core = N.Name "elm-lang" "core"
       version <- latestVersion core
       let desc = Desc.defaultDescription {
-          Desc.dependencies = [ (core, Constraint.untilNextMajor version) ]
+          Desc.dependencies = Deps.Dependencies [ (core, Constraint.untilNextMajor version) ]
       }
       liftIO (Desc.write desc)
       return desc

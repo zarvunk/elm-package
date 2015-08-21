@@ -4,7 +4,6 @@ module Elm.Package.Description where
 
 import Prelude hiding (read)
 import Control.Applicative ((<$>))
-import Control.Arrow (first)
 import Control.Monad.Trans (MonadIO, liftIO)
 import Control.Monad.Error.Class (MonadError, throwError)
 import Control.Monad (when, mzero, forM)
@@ -23,6 +22,7 @@ import qualified Elm.Compiler.Module as Module
 import qualified Elm.Package.Name as N
 import qualified Elm.Package.Version as V
 import qualified Elm.Package.Constraint as C
+import qualified Elm.Package.Dependencies as D
 import qualified Elm.Package.Paths as Path
 import Elm.Utils ((|>))
 
@@ -37,7 +37,7 @@ data Description = Description
     , sourceDirs :: [FilePath]
     , exposed :: [Module.Name]
     , natives :: Bool
-    , dependencies :: [(N.Name, C.Constraint)]
+    , dependencies :: D.Dependencies
     }
 
 
@@ -53,7 +53,7 @@ defaultDescription =
     , sourceDirs = [ "." ]
     , exposed = []
     , natives = False
-    , dependencies = []
+    , dependencies = D.Dependencies []
     }
 
 
@@ -141,7 +141,7 @@ prettyJSON description =
         ]
 
     dependencyKeys =
-        dependencies description
+        D.list (dependencies description)
           |> map fst
           |> List.sort
           |> map (T.pack . N.toString)
@@ -171,19 +171,16 @@ instance ToJSON Description where
         , "license" .= license d
         , "source-directories" .= sourceDirs d
         , "exposed-modules" .= exposed d
-        , "dependencies" .= jsonDeps (dependencies d)
+        , "dependencies" .= dependencies d
         , "elm-version" .= elmVersion d
         ] ++ if natives d then ["native-modules" .= True] else []
-    where
-      jsonDeps deps =
-          Map.fromList $ map (first (T.pack . N.toString)) deps
 
 
 instance FromJSON Description where
     parseJSON (Object obj) =
         do  version <- get obj "version" "your projects version number"
 
-            elmVersion <- getElmVersion obj
+            elmVersion <- get obj "elm-version" elmVersionDescription
 
             summary <- get obj "summary" "a short summary of your project"
             when (length summary >= 80) $
@@ -200,7 +197,7 @@ instance FromJSON Description where
 
             sourceDirs <- get obj "source-directories" "the directories that hold source code"
 
-            deps <- getDependencies obj
+            deps <- get obj "dependencies" "a listing of your project's dependencies"
 
             natives <- maybe False id <$> obj .:? "native-modules"
 
@@ -222,31 +219,6 @@ get obj field desc =
               "Missing field " ++ show field ++ ", " ++ desc ++ ".\n" ++
               "    Check out an example " ++ Path.description ++ " file here:\n" ++
               "    <https://raw.githubusercontent.com/evancz/elm-html/master/elm-package.json>"
-
-
-getDependencies :: Object -> Parser [(N.Name, C.Constraint)]
-getDependencies obj =
-  do  deps <- get obj "dependencies" "a listing of your project's dependencies"
-      forM (Map.toList deps) $ \(rawName, rawConstraint) ->
-          case (N.fromString rawName, C.fromString rawConstraint) of
-            (Just name, Just constraint) ->
-                return (name, constraint)
-
-            (Nothing, _) ->
-                fail (N.errorMsg rawName)
-
-            (_, Nothing) ->
-                fail (C.errorMessage rawConstraint)
-
-
-getElmVersion :: Object -> Parser C.Constraint
-getElmVersion obj =
-  do  rawConstraint <- get obj "elm-version" elmVersionDescription
-      case C.fromString rawConstraint of
-        Just constraint ->
-            return constraint
-        Nothing ->
-            fail (C.errorMessage rawConstraint)
 
 
 elmVersionDescription :: String

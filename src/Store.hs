@@ -13,6 +13,7 @@ import System.FilePath ((</>))
 import qualified Catalog
 import qualified Elm.Package.Constraint as C
 import qualified Elm.Package.Description as Desc
+import qualified Elm.Package.Dependencies as Deps
 import qualified Elm.Package.Name as N
 import qualified Elm.Package.Version as V
 import qualified Manager
@@ -96,7 +97,7 @@ getConstraints name version =
         Just constraints -> return constraints
         Nothing ->
           do  desc <- Catalog.description name version
-              let constraints = (Desc.elmVersion desc, Desc.dependencies desc)
+              let constraints = (Desc.elmVersion desc, Deps.list $ Desc.dependencies desc)
               modify $ \store ->
                   store {
                       constraintCache =
