@@ -21,6 +21,7 @@ import System.Directory (doesFileExist)
 import qualified Elm.Compiler.Module as Module
 import qualified Elm.Package.Name as N
 import qualified Elm.Package.Version as V
+import qualified Elm.Package.Location as L
 import qualified Elm.Package.Constraint as C
 import qualified Elm.Package.Dependencies as D
 import qualified Elm.Package.Paths as Path
@@ -37,7 +38,7 @@ data Description = Description
     , sourceDirs :: [FilePath]
     , exposed :: [Module.Name]
     , natives :: Bool
-    , dependencies :: D.Dependencies
+    , dependencies :: [(N.Name, (L.Location, C.Constraint))]
     }
 
 
@@ -53,7 +54,7 @@ defaultDescription =
     , sourceDirs = [ "." ]
     , exposed = []
     , natives = False
-    , dependencies = D.Dependencies []
+    , dependencies = []
     }
 
 
@@ -141,10 +142,10 @@ prettyJSON description =
         ]
 
     dependencyKeys =
-        D.list (dependencies description)
+        dependencies description
           |> map fst
           |> List.sort
-          |> map (T.pack . N.toString)
+          |> map N.toText
 
 
 prettyAngles :: BS.ByteString -> BS.ByteString
@@ -171,9 +172,12 @@ instance ToJSON Description where
         , "license" .= license d
         , "source-directories" .= sourceDirs d
         , "exposed-modules" .= exposed d
-        , "dependencies" .= dependencies d
+        , "dependencies" .= normalDependencies
+        , "dev-dependencies" .= devDependencies
         , "elm-version" .= elmVersion d
         ] ++ if natives d then ["native-modules" .= True] else []
+
+    where (normalDependencies, devDependencies) = sortDependencies (dependencies d)
 
 
 instance FromJSON Description where
@@ -197,11 +201,13 @@ instance FromJSON Description where
 
             sourceDirs <- get obj "source-directories" "the directories that hold source code"
 
-            deps <- get obj "dependencies" "a listing of your project's dependencies"
+            normalDeps <- D.normal <$> get obj "dependencies" "a listing of your project's dependencies"
+
+            devDeps <- D.dev <$> get obj "dev-dependencies" "special dependencies that must be fetched from elsewhere"
 
             natives <- maybe False id <$> obj .:? "native-modules"
 
-            return $ Description name repo version elmVersion summary license sourceDirs exposed natives deps
+            return $ Description name repo version elmVersion summary license sourceDirs exposed natives (normalDeps ++ devDeps)
 
     parseJSON _ = mzero
 

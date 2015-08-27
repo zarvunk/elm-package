@@ -97,7 +97,7 @@ getConstraints name version =
         Just constraints -> return constraints
         Nothing ->
           do  desc <- Catalog.description name version
-              let constraints = (Desc.elmVersion desc, Deps.list $ Desc.dependencies desc)
+              let constraints = (Desc.elmVersion desc, Desc.dependencies desc)
               modify $ \store ->
                   store {
                       constraintCache =

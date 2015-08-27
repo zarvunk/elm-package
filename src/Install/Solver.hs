@@ -9,11 +9,12 @@ import qualified Elm.Package.Constraint as C
 import qualified Elm.Package.Name as N
 import qualified Elm.Package.Solution as S
 import qualified Elm.Package.Version as V
+import qualified Elm.Package.Location as L
 import qualified Manager
 import qualified Store
 
 
-solve :: [(N.Name, C.Constraint)] -> Manager.Manager S.Solution
+solve :: [(N.Name, (L.Location, C.Constraint))] -> Manager.Manager S.Solution
 solve constraints =
     do  store <- Store.initialStore
         maybeSolution <- evalStateT (exploreConstraints constraints) store
@@ -34,7 +35,7 @@ type Packages =
     Map.Map N.Name [V.Version]
 
 
-exploreConstraints :: [(N.Name, C.Constraint)] -> Explorer (Maybe S.Solution)
+exploreConstraints :: [(N.Name, (L.Location, C.Constraint))] -> Explorer (Maybe S.Solution)
 exploreConstraints constraints =
   do  maybeInitialPackages <- addConstraints Map.empty constraints
       let initialPackages = maybe Map.empty id maybeInitialPackages

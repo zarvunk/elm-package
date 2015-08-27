@@ -16,6 +16,7 @@ import qualified Elm.Package.Name as N
 import qualified Elm.Package.Paths as Path
 import qualified Elm.Package.Solution as Solution
 import qualified Elm.Package.Version as V
+import qualified Elm.Package.Location as L
 import qualified Install.Fetch as Fetch
 import qualified Install.Plan as Plan
 import qualified Install.Solver as Solver
@@ -25,8 +26,8 @@ import qualified Store
 
 data Args
     = Everything
-    | Latest N.Name
-    | Exactly N.Name V.Version
+    | Latest N.Name L.Location
+    | Exactly N.Name V.Version L.Location
 
 
 install :: Bool -> Args -> Manager.Manager ()
@@ -56,7 +57,7 @@ install autoYes args =
 
 upgrade :: Bool -> Desc.Description -> Manager.Manager ()
 upgrade autoYes description =
-  do  newSolution <- Solver.solve (Deps.list $ Desc.dependencies description)
+  do  newSolution <- Solver.solve (Desc.dependencies description)
 
       exists <- liftIO (doesFileExist Path.solvedDependencies)
       oldSolution <-
@@ -150,7 +151,7 @@ addConstraint autoYes name version description =
             ++ Constraint.toString (Constraint.untilNextMajor version) ++ "\n"
 
 
-addNewDependency :: Bool -> N.Name -> V.Version -> Desc.Description -> Manager.Manager Desc.Description
+addNewDependency :: Bool -> N.Name -> V.Version -> L.Location -> Desc.Description -> Manager.Manager Desc.Description
 addNewDependency autoYes name version description =
   do  confirm <-
           case autoYes of

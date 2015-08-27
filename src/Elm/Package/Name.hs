@@ -27,6 +27,11 @@ toString name =
     user name ++ "/" ++ project name
 
 
+toText :: Name -> T.Text
+toText name =
+    T.pack (toString name)
+
+
 toUrl :: Name -> String
 toUrl name =
     user name ++ "/" ++ project name

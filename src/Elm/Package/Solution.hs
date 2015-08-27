@@ -17,7 +17,7 @@ import qualified Elm.Package.Version as V
 
 
 type Solution =
-    Map.Map N.Name V.Version
+    Map.Map N.Name (L.Location, V.Version)
 
 
 -- READING AND WRITING SOLUTIONS
