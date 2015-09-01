@@ -96,7 +96,7 @@ getConstraints name version =
       case Map.lookup (name, version) cache of
         Just constraints -> return constraints
         Nothing ->
-          do  desc <- Catalog.description name version
+          do  desc <- Cache.description name version
               let constraints = (Desc.elmVersion desc, Desc.dependencies desc)
               modify $ \store ->
                   store {

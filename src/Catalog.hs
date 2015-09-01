@@ -2,19 +2,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Catalog where
 
-import Control.Monad.Error.Class (MonadError, throwError)
-import Control.Monad.RWS (MonadIO, liftIO, MonadReader, asks)
+import Control.Monad.Error.Class (MonadError)
+import Control.Monad.RWS (MonadIO, MonadReader, asks)
 import Data.Aeson ((.:))
 import qualified Data.Aeson as Json
 import qualified Data.Binary as Binary
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Time.Clock as Time
 import Data.Version (showVersion)
 import Network.HTTP
 import qualified Network.HTTP.Client as Client
 import qualified Network.HTTP.Client.MultipartFormData as Multi
-import System.Directory (createDirectoryIfMissing, doesFileExist)
-import System.FilePath ((</>), dropFileName)
 
 import qualified Elm.Docs as Docs
 import qualified Elm.Package.Description as Desc
@@ -126,27 +123,10 @@ getJson
     -> N.Name
     -> V.Version
     -> m a
-getJson metadata metadataPath name version =
-  do  cacheDir <- asks Manager.cacheDirectory
-      let fullMetadataPath =
-            cacheDir </> N.toFilePath name </> V.toString version </> metadataPath
-
-      exists <- liftIO (doesFileExist fullMetadataPath)
-
-      content <-
-        case exists of
-          True -> liftIO (LBS.readFile fullMetadataPath)
-          False ->
-            do  url <- catalog metadata [("name", N.toString name), ("version", V.toString version)]
+getJson metadata name version =
+            do  url <- catalog metadata [("name", Package.toString name)
+                                        , ("version", Package.versionToString version)
+                                        ]
                 Http.send url $ \request manager ->
                     do  response <- Client.httpLbs request manager
-                        createDirectoryIfMissing True (dropFileName fullMetadataPath)
-                        LBS.writeFile fullMetadataPath (Client.responseBody response)
                         return (Client.responseBody response)
-
-      case Json.eitherDecode content of
-        Right value -> return value
-        Left err ->
-          throwError $
-            "Unable to get " ++ metadataPath ++ " for "
-            ++ N.toString name ++ " " ++ V.toString version ++ "\n" ++ err

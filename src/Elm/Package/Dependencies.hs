@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Elm.Package.Dependencies where
 
 import Data.Aeson
@@ -83,4 +82,9 @@ instance FromJSON DevDependencies where
 
 sortDependencies :: [(N.Name, (L.Location, C.Constraint))] -> (NormalDependencies, DevDependencies)
 sortDependencies deps =
-    (Normal *** Dev) $ List.partition ((== L.Catalog) . fst . snd) deps
+    (Normal *** Dev) $ List.partition isInCatalog deps
+    where
+        isInCatalog (name, (location, constraint)) =
+            case location of
+                L.Catalog -> True
+                _ -> False

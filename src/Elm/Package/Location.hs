@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Elm.Package.Location where
 
 import Data.Aeson
@@ -14,31 +13,32 @@ data Location
         = Catalog
         | GitHub
         | Local FilePath
-        | Remote Url
-        deriving ( Eq )
+        | Url Url
 
 
 instance ToJSON Location where
     toJSON location =
         case location of
-            Catalog  -> String "catalog"
-            GitHub   -> String "github"
-            Local p  -> object
+            Catalog -> String "catalog"
+            GitHub  -> String "github"
+            Local p -> object
                     [ "local-path" .= p ]
-            Remote u -> object
-                    [ "remote-url" .= u ]
+            Url u   -> object
+                    [ "git-url" .= u ]
 
 
 instance FromJSON Location where
-    parseJSON (Object o) =
-        (Local <$> o .: "local-path")
-        <|> (Remote <$> o .: "remote-url")
-        <|> (fail "expecting a key named either `local-path' or `remote-url'")
+    parseJSON j =
+        case j of
+            Object o ->
+                (Local <$> o .: "local-path")
+                <|> (Url <$> o .: "git-url")
+                <|> (fail "expecting a key named either `local-path' or `git-url'")
 
-    parseJSON (String s)
-        | s == "catalog"   = return Catalog
-        | s == "github"    = return GitHub
-        | otherwise        = fail "expecting a string consisting of either `catalog' or `github'"
+            String s
+                | s == "catalog"  -> return Catalog
+                | s == "github"   -> return GitHub
+                | otherwise       -> fail "expecting a string consisting of either `catalog' or `github'"
 
-    parseJSON _ =
-        fail "location must be either a string or an object"
+            _ ->
+                fail "location must be either a string or an object"

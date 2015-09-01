@@ -177,7 +177,7 @@ instance ToJSON Description where
         , "elm-version" .= elmVersion d
         ] ++ if natives d then ["native-modules" .= True] else []
 
-    where (normalDependencies, devDependencies) = sortDependencies (dependencies d)
+    where (normalDependencies, devDependencies) = D.sortDependencies (dependencies d)
 
 
 instance FromJSON Description where
